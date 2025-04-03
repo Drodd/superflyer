@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>发传单模拟器</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            touch-action: none;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background-color: #f0f0f0;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+        
+        #game-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+        }
+        
+        .pedestrian {
+            position: absolute;
+            z-index: 10;
+            pointer-events: none;
+        }
+        
+        .flyer {
+            position: absolute;
+            pointer-events: none;
+            transform-origin: center center;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            z-index: 20;
+        }
+        
+        .flyer img {
+            width: auto;
+            height: auto;
+            display: block;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .flyer-dragging img {
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+        }
+        
+        #flyer-queue {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            justify-content: center;
+            z-index: 60;
+            perspective: 600px;
+            transform-style: preserve-3d;
+            width: 400px;
+            height: 260px;
+        }
+        
+        .queue-flyer {
+            position: absolute;
+            transform-origin: bottom center;
+            transition: transform 0.3s ease-out;
+            cursor: pointer;
+            bottom: 20px;
+        }
+        
+        .queue-flyer img {
+            width: auto;
+            height: auto;
+            max-height: 120px;
+            display: block;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+            transition: filter 0.3s ease, transform 0.3s ease;
+            transform: scale(2);
+        }
+        
+        .queue-flyer:nth-child(1) {
+            z-index: 3;
+            left: calc(50% - 80px);
+            transform: rotate(-15deg);
+        }
+        
+        .queue-flyer:nth-child(2) {
+            z-index: 2;
+            left: 50%;
+            transform: translateX(-50%) rotate(0deg);
+        }
+        
+        .queue-flyer:nth-child(3) {
+            z-index: 1;
+            left: calc(50% + 80px);
+            transform: rotate(15deg);
+        }
+        
+        .queue-flyer:hover {
+            transform: translateY(-20px);
+        }
+        
+        .queue-flyer:nth-child(1):hover {
+            transform: rotate(-15deg) translateY(-20px);
+        }
+        
+        .queue-flyer:nth-child(2):hover {
+            transform: translateX(-50%) rotate(0deg) translateY(-20px);
+        }
+        
+        .queue-flyer:nth-child(3):hover {
+            transform: rotate(15deg) translateY(-20px);
+        }
+        
+        .queue-flyer img {
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        }
+        
+        .queue-flyer:hover img {
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+        }
+        
+        #ui-container {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border-radius: 10px;
+            pointer-events: none;
+            user-select: none;
+        }
+        
+        .ui-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ui-label {
+            font-weight: bold;
+            min-width: 80px;
+        }
+        
+        .ui-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        #self-esteem-container {
+            width: 150px;
+            height: 15px;
+            background-color: #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        #self-esteem-fill {
+            height: 100%;
+            width: 100%;
+            background-color: #4CAF50;
+            border-radius: 10px;
+            transition: width 0.3s, background-color 0.3s;
+        }
+        
+        /* 金币得分特效样式 */
+        .coin-animation {
+            position: absolute;
+            z-index: 30;
+            width: 30px;
+            height: 30px;
+            background-image: url('img/coin.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            pointer-events: none;
+            animation: coin-float 1s ease-out forwards;
+            filter: drop-shadow(0 0 5px rgba(255, 215, 0, 0.7));
+        }
+        
+        @keyframes coin-float {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-80px) scale(1.2);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes coin-spin {
+            0% {
+                background-position: 0% center;
+            }
+            100% {
+                background-position: -400% center;
+            }
+        }
+        
+        /* 得分文本动画 */
+        .score-text {
+            position: absolute;
+            z-index: 31;
+            color: gold;
+            font-weight: bold;
+            font-size: 18px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            animation: score-float 1.2s ease-out forwards;
+        }
+        
+        @keyframes score-float {
+            0% {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+            20% {
+                transform: translateY(-20px) scale(1.5);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-60px) scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-area">
+            <img id="game-background" src="img/img_bg.png" alt="街道背景">
+            
+            <div id="ui-container">
+                <div class="ui-item">
+                    <div class="ui-label">得分:</div>
+                    <div id="score" class="ui-value">0</div>
+                </div>
+                <div class="ui-item">
+                    <div class="ui-label">时间:</div>
+                    <div id="timer" class="ui-value">60</div>
+                </div>
+                <div class="ui-item">
+                    <div class="ui-label">自尊值:</div>
+                    <div id="self-esteem-container">
+                        <div id="self-esteem-fill"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html> 
